@@ -4,7 +4,7 @@ As a consultant for [The Concord Consortium](https://concord.org/), I prepared s
 
 - [Data Science Moves - Some thoughts and provocations](DataScienceMoves.pdf) (September 2016) This white paper describes a general framework of "data science moves," analogous to the "stats moves" the CODAP group has been thinking of. The "moves" I chose to focus on are inspired by the [data science workflow diagram](http://r4ds.had.co.nz/intro.html) from [R for Data Science](http://r4ds.had.co.nz/). I also brought in [KidPix](http://www.science.smith.edu/~amcnamara/blog/tools/2014/10/01/KidPix.html) as an example of contextual menus. For more on this white paper, you can see the [recorded webinar](https://www.youtube.com/watch?v=hxbdyfRj44I) from September 2016 where we discussed it. 
 
-- [Statistical Simulations](StatisticalSimulations.pdf) (November 2017) This white paper breaks down simulations into two main categories:
+- [Statistical Simulations](StatisticalSimulations.pdf) (November 2016) This white paper breaks down simulations into two main categories:
 
     - Simulations from a model to generate data under that model 
     - Simulations from data to generate new samples, either
