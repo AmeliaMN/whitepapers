@@ -1,0 +1,229 @@
+\documentclass[11pt]{article}
+
+% by Chad Topaz
+% August 26, 2008
+
+% Note that I am using .pdf figures in this template, so this document should be compiled with Pdftex.
+% If you want to use .eps figures instead, you should compile with Tex and Ghostscript
+
+% Import useful packages
+% If you have problems compiling, you can try making sure that you have downloaded the amssymb
+% and amsmath packages. Or alternatively, comment out the two lines below that call those packages.
+\usepackage{graphics}
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{mathrsfs}
+\usepackage{natbib}
+\usepackage{graphicx}
+\usepackage{setspace}
+\usepackage{subfigure}
+\usepackage{url}
+
+% Set margins and other page properties
+\setlength{\paperwidth}{8.5in}
+\setlength{\paperheight}{11in}
+\setlength{\voffset}{-0.2in}
+\setlength{\topmargin}{0in}
+\setlength{\headheight}{0in}
+\setlength{\headsep}{0in}
+\setlength{\footskip}{30pt}
+\setlength{\textheight}{9.25in}
+\setlength{\hoffset}{0in}
+\setlength{\oddsidemargin}{0in}
+\setlength{\textwidth}{6.5in}
+\setlength{\parindent}{0in}
+\setlength{\parskip}{9pt}
+
+\let\proglang=\textsf
+\newcommand{\pkg}[1]{{\fontseries{b}\selectfont #1}}
+\def\newblock{\hskip .11em plus .33em minus .07em}
+
+
+\title{Data Science Moves -- Some thoughts and provocations}
+\author{Amelia McNamara}
+\date{September 2016}
+
+\begin{document}
+\maketitle
+
+\section{Introduction}
+Bill asked me to spend time this month thinking about what `data science moves' might be. Data science is generally considered to be at the intersection of statistics, computer science, an application area, and communication of results. There is a famous Venn diagram to that effect by Drew Conway, and we've used the basic idea in writing our major in Statistical and Data Sciences at Smith~\citep{SmithSDS}. 
+
+In \proglang{R}, where I spend most of my time, there is a collection of packages called the `tidyverse,' so-named because they work with tidy data~\citep{Wic2014} and have a consistent, pipeable syntax. The tidyverse attempts to make it possible to work through an entire data science workflow, of tidying, transforming, visualizing, modeling, and communicating results about data. These tasks feed back into one another, as shown in Figure \ref{cycle}. 
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.8\textwidth]{cycle.png}
+\caption{The data science cycle, via Hadley Wickham. \label{cycle}}
+\end{figure}
+
+My argument is that all the tasks from Figure \ref{cycle} should be possible in CODAP. Let's think about them each in more depth. 
+
+
+\section{Import}
+Importing encompasses reading in many types of data, including data in different file types and from APIs. It seems like the goal of CODAP is to allow for import of data from local files and from URLs. I wasn't able to get a URL to work for me, but since the feature is already under the dropdown it seems like it's coming. One issue I discussed with Bill is that the data import functions expect to get flat files (tidy data) but then allow you to create hierarchical structures. The system won't allow you to import already-hierarchical data like JSON. I know the CODAP documents are stored as JSON, so my guess is that the underlying data representation for hierarchical data you make out of flat data is JSON. It would be nice to support the import of those files.  
+
+\section{Tidy}
+This is the one goal from the tidyverse I'm not sure will be relevant for CODAP. Tidy data has one observation per row, one variable per column, and all observations are of the same type~\citep{Wic2014}. (Wickham notes this a version of Codd's 3rd normal form.) One common category of un-tidy data is education data. For whatever reason, educational outcome data often comes with some rows representing counties, some representing school districts, and some individual schools. Because the observations aren't all at the same observational unit, this data isn't tidy. To tidy it, a user would need to separate it into multiple tables, one for each level of observation. Or, perhaps it could be stored hierarchically. 
+
+Like I discussed above, CODAP supports hierarchical data as long as it is made within the system. I think this is great! Hierarchical data is perhaps more natural for people. But, it does require some more thought about what would make it `tidy,' and it will likely change both the technical requirements for data transformation and perhaps the visual metaphors for the same. 
+
+\section{Transform}
+This is the area where `data science moves' are most clearly different from tasks in other domains, and also where there is the most work needed in CODAP.Again, I'm looking toward the tidyverse for inspiration. The \proglang{R} package \pkg{dplyr} was written to capture many possible data manipulations with a small number of `verbs.' These verbs were inspired by SQL. They are:
+\begin{itemize}
+\item \verb#mutate# (allows you to make a new variable or transform an existing one)
+\item \verb#summarize# (does a many-to-one mapping to summarize variables, perhaps grouped in a particular way)
+\item \verb#filter# (logical filtering on data)
+\item \verb#select# (pulls out specific variables)
+\item \verb#slice# (pulls out specific rows)
+\item \verb#group_by# (groups data by a particular variable or variables)
+\item \verb#arrange# (sorts the data)
+\item \verb#sample_n# (samples from the data)
+\end{itemize}
+
+The idea of the small set of verbs is that they are like building blocks that can be put together in many different ways, to powerful effect. A canonical example from the \pkg{dplyr} docs uses some data on flight delays~\citep{Wic2016}. It groups flights by year, month, and day (essentially grouping by unique days without having to convert the date variables), then selects the arrival and departure delay variables, and finally summarizes both delays to show average arrival and departure delays per day. Results with average delays greater than 30 minutes in either arrival or departure are filtered out and shown. Notice that the \verb#summarize()# call didn't need to specify that the averages be computed per day, because the data being piped in from before was already grouped by day, the summaries were done on those groups. 
+
+<<message=FALSE, warning=FALSE, cache=TRUE>>=
+library(nycflights13)
+library(dplyr)
+flights %>%
+  group_by(year, month, day) %>%
+  select(arr_delay, dep_delay) %>%
+  summarize(
+    arr = mean(arr_delay, na.rm = TRUE),
+    dep = mean(dep_delay, na.rm = TRUE)
+  ) %>%
+  filter(arr > 30 | dep > 30)
+@
+
+Some of these `moves' are possible in CODAP already-- you can summarize a variable, for example. But I think the chaining of operations is important for data science. I believe CODAP would allow a set of operations to be nested inside one another, but reading that sort of code is often difficult. 
+
+\subsection*{How could CODAP support data transformations?}
+
+There are several possible levels here. One is to imagine a local maximum based on the functionality currently possible, and the other is to think truly blue-sky and go for the global maximum. Let's start with the local max. 
+Data manipulations all seem to appear in as part of the ruler menu on the data table. All the functions are accessible through a menu. Assuming this is going to remain the same, let's consider what would make it more dynamic to work with data manipulations. Currently, once you have selected a function, you must know the syntax (no code completion, hovering hints, or sidebar documentation) and click the Apply button to get anything to happen. If you made a mistake, you have to either edit the formula for the attribute or delete it and start again. Essentially, this is a blind process. Bret Victor has thought a lot about the future of programming, and one of his tenets is that anything you do in the program should have an immediate result in the outcome~\citep{Vic2012}. Applying this to CODAP, I think you should be able to see a live preview of what your code will do. Then, you can see if the operation you are applying does what you think it does before you hit apply. 
+
+If we are thinking bigger, we should begin by considering one of the strengths of CODAP: its visual nature. I love that when you click on the graph button, it creates a visual block that already has something going on in it. That block encourages you to go further with the text ``Click here, or drag an attribute here.'' Could we imagine something similar for data manipulation? 
+
+If there was a tool palette (like that in Photoshop or KidPix) with a small number of data manipulation operations, that would reduce cognitive load on users by allowing them to outsource remembering what the operations were to the palette. There is some debate on how many things humans can hold in their short-term memory. Some say $7\pm 2$~\citep{Mil1955}, some exactly 4~\citep{Cow2000}. Either way, it is a small number, and we want to provide as much support as possible. The palette could contain a button for summarize (for example), with a graphic image illustrating a summary. Since summaries are a many-to-one or many-to-few operation, it seems that there could be a general image for this. The RStudio cheatsheet on data manipulation provides some graphical examples~\citep{RStudio2015}. Their image for summarizing can be seen in Figure \ref{summary}. Another great source of inspiration is a shiny app (shiny is an way to create interactive web graphics from within R) to visualize data manipulations~\citep{Rib2014}. 
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.5\textwidth]{summary.png}
+\caption{Excerpt from RStudio cheatsheet on data wrangling \label{summary}}
+\end{figure}
+
+Of course, \verb#summarize()# doesn't just work on its own. The user must specify how they want their data summarized. Some common summaries are \verb#mean()#, \verb#max()#, and \verb#count()#. I could imagine the palette having several levels (again, taking inspiration from KidPix)~\citep{McN2014b, Hic2014}. If you are not familiar with KidPix, a screenshot of the program is shown in Figure \ref{KidPix}.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.8\textwidth]{KidPix.png}
+\caption{Screenshot of KidPix, via Wikipedia \label{KidPix}}
+\end{figure}
+
+
+Once someone had clicked on the summary button, they would be exposed to another palette (perhaps at the bottom of the screen) with a variety of common summaries and a \verb#...# to show more. If this could be done quickly, it would be nice to have a preview of each summary as the user hovered over the button. 
+
+These data manipulation verbs are typically many-to-many (for example, making a new variable in an existing dataset) or many-to-few/many-to-one (like summarizing a variable down to a mean or means for each of a number of groups). I haven't figured out how to make many-to-few operations create a new data table in CODAP (or, Fathom, but I think it must be possible there). Several times, I've done many-to-one operations that have added a new variable to my data that is just the same value repeated for every row. This is not desirable behavior. 
+
+
+
+\section{Visualize}
+This is another area where CODAP is well on the way. Like I said earlier, the fact that the graph button doesn't create a completely empty window, but rather a draft of a plot with encouragement to edit, is so powerful. The linked brushing that comes for free is also a huge plus. 
+
+The room for improvement is in the implementation of more plot types. In general, I think there should be at least two ways to visualize any data. Because Fathom had many plot types, I'm guessing this is coming in CODAP, too. 
+
+% Typically, I think of common plots for particular data types, as summarized in Table \ref{table:commonplots}. 
+% 
+% \begin{table}[htbp]
+% \centering
+% \begin{tabular}{|l|l|}
+% \hline 
+% Variable(s) & Default plot \\
+% \hline
+% one numeric & histogram \\
+% one categorical & bar chart \\
+% two numeric & scatterplot \\
+% two categorical & mosaic plot \\
+% one numeric and one categorical & pair of histograms or box plots\\ \hline
+% \end{tabular}
+% \caption{Typical default plots for common data types}\label{table:commonplots}
+% \end{table}
+% 
+% I think the piled dot plot CODAP provides for one numeric variable is great, particularly because of the way people often learn plotting, moving from less summary/abstraction to more~\citep{KonHigRus2014}. Some more plot types and their abstraction levels are listed in Table \ref{table:plotabs}. However, I 
+
+% 
+% \begin{table}[htbp]
+% \centering
+% \begin{tabular}{|l|l|}
+% \hline
+% \textbf{Level of abstraction} & \textbf{Plot type} \\
+% \hline
+% Idiosyncratic & drawings of data collection methods \\ \hline
+% No abstraction & dot plot, scatter plot, map with points,\\
+% (Case-value) & complete text \\ \hline
+% Abstracted into categories & stem and leaf plot, bar chart, histogram, \\
+% & pie chart, donut chart, choropleth map, \\
+% & word counts or word clouds \\ \hline
+% Abstracted to summary values & box plot\\
+% \hline
+% \end{tabular}
+% \caption{Levels of abstraction in standard statistical plots}\label{table:plotabs}
+% \end{table}
+
+\section{Model}
+
+As with the visualize section, I'm guessing that modeling will be coming because it is in Fathom. 
+
+\section{Communicate} 
+CODAP is solving some of the problems Fathom had with communication, particularly because CODAP is open and on the web. CODAP documents can be shared with people without them needing specialized software. I'm also excited about the idea that CODAP documents could be embedded in other pages (using iframes?). And, I like the ability to add text boxes to explain what is going on. 
+
+Even with these features, it is sometimes difficult for a reader to decipher what is going on when they open an existing CODAP document. They have to play with graphs to see what they are linked to, and generally begin interacting with the document (is that good or bad?). There is no way for them to see where an attribute came from without clicking to edit the formula, and if there are several datasets and several graphs, no visual link between the data and the graph(s) it created. I wonder if there could be another view on a document that would visualize the links between blocks (tables, graphs, models, etc). A data-flow view. 
+
+Because everything is being stored in JSON, I'm sure there is a way to see what all these connections are, but it is not user-friendly yet. Providing visual links between pieces would help support reproducibility. 
+
+Speaking of reproducibility, there are many layers to full reproducibility, but I'm stuck on the motivating use case illustrated in Figure \ref{karl_repro}, from a talk Karl Broman gave about reproducible research~\citep{Bro2016}.  
+
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.7\textwidth]{karl_repro.png}
+\caption{A motivation for reproducible research, via Karl Broman. \label{karl_repro}}
+\end{figure}
+
+Because CODAP is already keeping track of links (to be able to provide reactive behavior) it seems like it should be possible to solve this issue, and I can imagine users actually using it. ``Oh, this document does some cool maps, I wonder how my data would look in there?'' and then being able to swap in a different dataset is very powerful. Again, a data-flow view could help facilitate this. 
+
+\section{Concluding thoughts}
+If we are considering the components of data science to be import, tidy, transform, visualize, model, and communicate, CODAP is well on its way to facilitate the cycle. The largest area for improvement is in data transformation, which could particularly shine if the tools had great visual metaphors for the actions. In my dissertation, I came up with a list of attributes for a modern statistical computing tool, and one of them was ``inherent visual documentation''~\citep{McN2015}. Again, I think CODAP shines in this regard. Plots show you what they are going to do, they don't start with a blank screen, and they are reactive. If CODAP had facilities for even simple data manipulations with inherent visual documentation, I think the case could be easily made to use CODAP as a tool for teaching data science. 
+
+
+\section{Questions for discussion}
+Of course, this is all meant to be a provocation, to spark discussion. You may have come up with questions of your own while you were reading this, but if not, here are a few to get us started:
+\begin{enumerate}
+\item Should CODAP support the data-analytic cycle of the tidyverse? Is it appropriate for a tool for learning?
+\item Are the elements of the cycle fully inclusive? Are there other components that have been left out?
+\item Should CODAP provide all the data transformations of a professional tool like R? 
+\item How does variability get expressed through the entire process? One of the goals of statistical thinking is often to consider trends and variability, but sometimes making things more formal makes it harder to focus on that. 
+\item Who would use CODAP if it had these features? Are those the users we are targeting?
+\item How could CODAP better support its users? What other already-strong characteristics can be translated to data science moves?
+\end{enumerate}
+
+% While I was working through this and playing with CODAP I came up with the following wishlist. Some of these are worked into the text above, but the help-related items are not. 
+% \subsection{Wish list:}
+% \begin{itemize}
+% \item Tab-completion or embedded help
+% \item Better browsing in Help. How do I go back to the list of results? Do I need to search again?
+% \end{itemize}
+
+
+%https://adobe.github.io/Spry/samples/data_region/JSONDataSetSample.html for cake data
+%\item What is the ``moves'' referencing? There was some previous ``moves''
+
+
+\clearpage
+
+
+
+\bibliographystyle{apalike}
+\bibliography{../ReadingLibrary.bib}
+\end{document}  
