@@ -1,0 +1,13 @@
+*.Rproj
+*.mp4
+*.m4a
+*.m3u
+*.bbl
+*.log
+*.synctex.gz
+*.txt
+cache/
+*.tex
+.DS_Store
+figure/
+Forms/
